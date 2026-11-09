@@ -20,7 +20,7 @@ return new class extends Migration
 
             $table->unique(['job_analysis_id', 'project_id'], 'job_analysis_project_unique');
             $table->index(['user_id', 'job_analysis_id']);
-            $table->index(['job_analysis_id', 'selected', 'display_order']);
+            $table->index(['job_analysis_id', 'selected', 'display_order'], 'japs_analysis_selected_order_idx');
         });
     }
 

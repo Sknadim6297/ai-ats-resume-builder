@@ -149,20 +149,25 @@ class ResumeImportService
                 'model' => config('ai.providers.'.config('ai.default').'.model'),
             ]);
         } catch (ValidationException $e) {
+            $safe = collect($e->errors())->flatten()->first() ?: 'Parsing failed.';
+
             $import->update([
                 'status' => ResumeImport::STATUS_FAILED,
-                'safe_error' => collect($e->errors())->flatten()->first() ?: 'Parsing failed.',
+                'safe_error' => $safe,
             ]);
 
             throw $e;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Avoid logging request payloads that might contain secrets; report the throwable only.
+            report($e);
+
             $import->update([
                 'status' => ResumeImport::STATUS_FAILED,
-                'safe_error' => 'Parsing failed unexpectedly.',
+                'safe_error' => 'AI resume parsing failed. Please try again.',
             ]);
 
             throw ValidationException::withMessages([
-                'resume' => 'Parsing failed unexpectedly.',
+                'resume' => 'AI resume parsing failed. Please try again.',
             ]);
         }
 

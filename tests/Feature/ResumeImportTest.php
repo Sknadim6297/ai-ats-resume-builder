@@ -252,4 +252,97 @@ class ResumeImportTest extends TestCase
         $this->assertSame(ResumeImport::STATUS_REVIEW, $import->fresh()->status);
         $this->assertSame(1, Profile::query()->where('user_id', $user->id)->count());
     }
+
+    public function test_parse_shows_clear_error_when_ai_provider_disabled(): void
+    {
+        config([
+            'ai.default' => 'null',
+            'ai.providers.grok.api_key' => '',
+            'ai.providers.grok.model' => '',
+        ]);
+
+        $user = User::factory()->create();
+        $import = ResumeImport::query()->create([
+            'user_id' => $user->id,
+            'original_filename' => 'cv.pdf',
+            'status' => ResumeImport::STATUS_EXTRACTED,
+            'extracted_text' => str_repeat('Experienced Laravel developer building ATS tools. ', 5),
+        ]);
+
+        try {
+            app(ResumeImportService::class)->runParsing($user, $import);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first();
+            $this->assertIsString($message);
+            $this->assertStringContainsString('AI_PROVIDER=grok', $message);
+            $this->assertStringNotContainsString('unexpectedly', mb_strtolower($message));
+            $this->assertStringNotContainsString('secret', mb_strtolower($message));
+        }
+
+        $fresh = $import->fresh();
+        $this->assertSame(ResumeImport::STATUS_FAILED, $fresh->status);
+        $this->assertStringContainsString('AI_PROVIDER=grok', (string) $fresh->safe_error);
+    }
+
+    public function test_parse_shows_clear_error_when_api_key_missing(): void
+    {
+        config([
+            'ai.default' => 'grok',
+            'ai.providers.grok.api_key' => '',
+            'ai.providers.grok.model' => 'grok-test',
+        ]);
+
+        $user = User::factory()->create();
+        $import = ResumeImport::query()->create([
+            'user_id' => $user->id,
+            'original_filename' => 'cv.pdf',
+            'status' => ResumeImport::STATUS_EXTRACTED,
+            'extracted_text' => str_repeat('Experienced Laravel developer building ATS tools. ', 5),
+        ]);
+
+        try {
+            app(ResumeImportService::class)->runParsing($user, $import);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first();
+            $this->assertIsString($message);
+            $this->assertStringContainsString('XAI_API_KEY', $message);
+            $this->assertStringNotContainsString('unexpectedly', mb_strtolower($message));
+        }
+    }
+
+    public function test_parse_maps_invalid_api_key_without_exposing_secrets(): void
+    {
+        config([
+            'ai.default' => 'grok',
+            'ai.providers.grok.api_key' => 'sk-test-should-not-appear-in-ui',
+            'ai.providers.grok.model' => 'test-model',
+            'ai.providers.grok.base_url' => 'https://api.x.ai/v1',
+            'ai.providers.grok.timeout' => 5,
+            'ai.providers.grok.max_retries' => 0,
+        ]);
+
+        \Illuminate\Support\Facades\Http::fake([
+            'api.x.ai/*' => \Illuminate\Support\Facades\Http::response(['error' => 'unauthorized'], 401),
+        ]);
+
+        $user = User::factory()->create();
+        $import = ResumeImport::query()->create([
+            'user_id' => $user->id,
+            'original_filename' => 'cv.pdf',
+            'status' => ResumeImport::STATUS_EXTRACTED,
+            'extracted_text' => str_repeat('Experienced Laravel developer building ATS tools. ', 5),
+        ]);
+
+        try {
+            app(ResumeImportService::class)->runParsing($user, $import);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first();
+            $this->assertIsString($message);
+            $this->assertStringContainsString('authentication failed', mb_strtolower($message));
+            $this->assertStringNotContainsString('sk-test-should-not-appear-in-ui', $message);
+        }
+    }
 }

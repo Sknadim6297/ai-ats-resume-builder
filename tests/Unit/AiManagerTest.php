@@ -30,4 +30,14 @@ class AiManagerTest extends TestCase
             new AiRequest(task: 'jd_extraction', prompt: 'Extract requirements')
         );
     }
+
+    public function test_empty_default_driver_coerces_to_null(): void
+    {
+        config(['ai.default' => null]);
+
+        $manager = $this->app->make(AiManager::class);
+
+        $this->assertSame('null', $manager->getDefaultDriver());
+        $this->assertInstanceOf(NullAiProvider::class, $manager->provider());
+    }
 }

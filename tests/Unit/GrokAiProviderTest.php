@@ -80,4 +80,68 @@ class GrokAiProviderTest extends TestCase
         $this->expectExceptionMessage('Authentication failed');
         $provider->complete(new AiRequest(task: 'jd_extraction', prompt: 'hi'));
     }
+
+    public function test_rate_limit_is_mapped(): void
+    {
+        Http::fake([
+            'api.x.ai/*' => Http::response(['error' => ['message' => 'rate limit']], 429),
+        ]);
+
+        $provider = new GrokAiProvider([
+            'api_key' => 'key',
+            'model' => 'test-model',
+            'base_url' => 'https://api.x.ai/v1',
+            'max_retries' => 0,
+        ]);
+
+        $this->expectException(AiProviderException::class);
+        $this->expectExceptionMessage('Rate limit exceeded');
+        $provider->complete(new AiRequest(task: 'jd_extraction', prompt: 'hi'));
+    }
+
+    public function test_unsupported_model_is_mapped(): void
+    {
+        Http::fake([
+            'api.x.ai/*' => Http::response([
+                'error' => ['message' => 'The model `nope` does not exist'],
+            ], 404),
+        ]);
+
+        $provider = new GrokAiProvider([
+            'api_key' => 'key',
+            'model' => 'nope',
+            'base_url' => 'https://api.x.ai/v1',
+            'max_retries' => 0,
+        ]);
+
+        $this->expectException(AiProviderException::class);
+        $this->expectExceptionMessage('Unsupported or invalid model');
+        $provider->complete(new AiRequest(task: 'jd_extraction', prompt: 'hi'));
+    }
+
+    public function test_malformed_json_content_is_mapped(): void
+    {
+        Http::fake([
+            'api.x.ai/*' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => 'not-json {{{']],
+                ],
+            ], 200),
+        ]);
+
+        $provider = new GrokAiProvider([
+            'api_key' => 'key',
+            'model' => 'test-model',
+            'base_url' => 'https://api.x.ai/v1',
+            'max_retries' => 0,
+        ]);
+
+        $this->expectException(AiProviderException::class);
+        $this->expectExceptionMessage('invalid JSON');
+        $provider->complete(new AiRequest(
+            task: 'jd_extraction',
+            prompt: 'hi',
+            expectJson: true,
+        ));
+    }
 }

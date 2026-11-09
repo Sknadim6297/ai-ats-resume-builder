@@ -12,7 +12,8 @@ return [
     |
     */
 
-    'default' => env('AI_PROVIDER', 'null'),
+    // Unquoted AI_PROVIDER=null in .env becomes PHP null; coerce to the "null" driver.
+    'default' => env('AI_PROVIDER') ?: 'null',
 
     'providers' => [
 

@@ -83,7 +83,12 @@ class GrokAiProvider implements AiProviderInterface
             throw AiProviderException::requestFailed('grok', 'Rate limit exceeded.');
         }
 
+        if (in_array($response->status(), [400, 404], true) && $this->looksLikeModelError($response->json())) {
+            throw AiProviderException::unsupportedModel('grok');
+        }
+
         if ($response->failed()) {
+            // Never include raw provider bodies in exceptions (may echo request metadata).
             throw AiProviderException::requestFailed(
                 'grok',
                 'HTTP '.$response->status().' from provider.'
@@ -141,5 +146,24 @@ class GrokAiProvider implements AiProviderInterface
         }
 
         return trim($trimmed);
+    }
+
+    private function looksLikeModelError(mixed $json): bool
+    {
+        $error = data_get($json, 'error.message', data_get($json, 'error'));
+        if (is_array($error) || is_object($error)) {
+            $message = mb_strtolower((string) json_encode($error));
+        } else {
+            $message = mb_strtolower(trim((string) $error));
+        }
+
+        if ($message === '') {
+            $message = mb_strtolower((string) json_encode($json));
+        }
+
+        return str_contains($message, 'model')
+            || str_contains($message, 'not found')
+            || str_contains($message, 'does not exist')
+            || str_contains($message, 'unsupported');
     }
 }

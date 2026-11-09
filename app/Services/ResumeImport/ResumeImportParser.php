@@ -2,15 +2,18 @@
 
 namespace App\Services\ResumeImport;
 
+use App\Services\AI\AiConfiguration;
 use App\Services\AI\AiManager;
 use App\Services\AI\DTOs\AiRequest;
 use App\Services\AI\Exceptions\AiProviderException;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ResumeImportParser
 {
     public function __construct(
         private readonly AiManager $ai,
+        private readonly AiConfiguration $configuration,
         private readonly ResumeImportSchema $schema,
     ) {}
 
@@ -20,6 +23,9 @@ class ResumeImportParser
     public function parse(string $extractedText): array
     {
         try {
+            // Fail fast with a clear message before any network call.
+            $this->configuration->assertReadyForLiveRequests();
+
             $response = $this->ai->complete(new AiRequest(
                 task: 'resume_import',
                 prompt: $this->userPrompt($extractedText),
@@ -32,6 +38,14 @@ class ResumeImportParser
         } catch (AiProviderException $e) {
             throw ValidationException::withMessages([
                 'resume' => $this->safeErrorMessage($e),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            throw ValidationException::withMessages([
+                'resume' => 'AI resume parsing failed. Please try again.',
             ]);
         }
 
@@ -69,19 +83,46 @@ PROMPT;
     {
         $message = mb_strtolower($e->getMessage());
 
-        if (str_contains($message, 'not configured')) {
-            return 'AI provider is not configured. Set XAI_API_KEY, XAI_MODEL, and AI_PROVIDER=grok.';
+        // Never echo exception text that might contain secrets; map to fixed copy only.
+        if (str_contains($message, 'missing credentials')) {
+            if (str_contains($message, 'xai_api_key') && str_contains($message, 'xai_model')) {
+                return 'AI is not fully configured. Set XAI_API_KEY and XAI_MODEL in your .env file, then run php artisan config:clear.';
+            }
+            if (str_contains($message, 'xai_api_key')) {
+                return 'AI is not fully configured. Set XAI_API_KEY in your .env file, then run php artisan config:clear.';
+            }
+            if (str_contains($message, 'xai_model')) {
+                return 'AI is not fully configured. Set XAI_MODEL in your .env file (from current xAI docs), then run php artisan config:clear.';
+            }
+
+            return 'AI is not fully configured. Set XAI_API_KEY and XAI_MODEL in your .env file, then run php artisan config:clear.';
         }
+
+        if (str_contains($message, 'not configured')) {
+            return 'AI is not enabled. Set AI_PROVIDER=grok, XAI_API_KEY, and XAI_MODEL in your .env file, then run php artisan config:clear.';
+        }
+
+        if (str_contains($message, 'unsupported ai provider') || str_contains($message, 'set ai_provider=grok')) {
+            return 'Unsupported AI provider. Set AI_PROVIDER=grok in your .env file, then run php artisan config:clear.';
+        }
+
+        if (str_contains($message, 'unsupported or invalid model')) {
+            return 'The configured XAI_MODEL is invalid or unsupported. Check the model id in your .env against current xAI docs, then run php artisan config:clear.';
+        }
+
         if (str_contains($message, 'rate limit')) {
             return 'The AI provider rate limit was reached. Wait about a minute, then try Parse with AI again.';
         }
+
         if (str_contains($message, 'authentication')) {
             return 'AI authentication failed. Check that XAI_API_KEY is valid.';
         }
+
         if (str_contains($message, 'timed out') || str_contains($message, 'connection')) {
             return 'The AI provider request timed out. Please try again.';
         }
-        if (str_contains($message, 'invalid json')) {
+
+        if (str_contains($message, 'invalid json') || str_contains($message, 'empty model response')) {
             return 'The AI provider returned invalid resume JSON. Please try again.';
         }
 

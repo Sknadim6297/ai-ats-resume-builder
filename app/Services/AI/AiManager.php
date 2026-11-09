@@ -14,17 +14,28 @@ class AiManager extends Manager
 {
     public function getDefaultDriver(): string
     {
-        return (string) $this->config->get('ai.default', 'null');
+        return $this->configuration()->normalizeProvider(
+            $this->config->get('ai.default', 'null')
+        );
     }
 
     public function provider(?string $name = null): AiProviderInterface
     {
+        $name = $name !== null
+            ? $this->configuration()->normalizeProvider($name)
+            : null;
+
         return $this->driver($name);
     }
 
     public function complete(AiRequest $request, ?string $provider = null): AiResponse
     {
         return $this->provider($provider)->complete($request);
+    }
+
+    public function configuration(): AiConfiguration
+    {
+        return $this->container->make(AiConfiguration::class);
     }
 
     protected function createNullDriver(): AiProviderInterface
