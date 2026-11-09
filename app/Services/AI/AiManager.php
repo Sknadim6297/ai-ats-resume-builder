@@ -6,6 +6,7 @@ use App\Services\AI\Contracts\AiProviderInterface;
 use App\Services\AI\DTOs\AiRequest;
 use App\Services\AI\DTOs\AiResponse;
 use App\Services\AI\Exceptions\AiProviderException;
+use App\Services\AI\Providers\GeminiAiProvider;
 use App\Services\AI\Providers\GrokAiProvider;
 use App\Services\AI\Providers\NullAiProvider;
 use Illuminate\Support\Manager;
@@ -52,5 +53,16 @@ class AiManager extends Manager
         }
 
         return new GrokAiProvider($config);
+    }
+
+    protected function createGeminiDriver(): AiProviderInterface
+    {
+        $config = $this->config->get('ai.providers.gemini', []);
+
+        if (! is_array($config)) {
+            throw AiProviderException::notConfigured('gemini');
+        }
+
+        return new GeminiAiProvider($config);
     }
 }

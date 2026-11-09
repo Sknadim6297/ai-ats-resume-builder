@@ -11,6 +11,7 @@ use App\Models\Skill;
 use App\Models\User;
 use App\Models\WorkExperience;
 use App\Models\WorkExperienceTechnology;
+use App\Services\AI\AiConfiguration;
 use App\Services\Profile\CurrentProfileService;
 use App\Services\Profile\ProfessionalProfileService;
 use Illuminate\Http\UploadedFile;
@@ -32,6 +33,7 @@ class ResumeImportService
         private readonly ProfessionalProfileService $profiles,
         private readonly CurrentProfileService $current,
         private readonly ResumeImportSchema $schema,
+        private readonly AiConfiguration $aiConfiguration,
     ) {}
 
     public function findOwned(User $user, int $id): ResumeImport
@@ -131,7 +133,8 @@ class ResumeImportService
         }
 
         // Resume AI parsing often exceeds PHP's default 60s request limit.
-        $aiTimeout = max(30, (int) config('ai.providers.'.config('ai.default').'.timeout', 45));
+        $providerName = $this->aiConfiguration->providerForTask('resume_import');
+        $aiTimeout = max(30, (int) config('ai.providers.'.$providerName.'.timeout', 90));
         if (function_exists('set_time_limit')) {
             @set_time_limit($aiTimeout + 30);
         }
@@ -139,14 +142,15 @@ class ResumeImportService
         $import->update(['status' => ResumeImport::STATUS_PARSING, 'safe_error' => null]);
 
         try {
-            $validated = $this->parser->parse((string) $import->extracted_text);
+            $parsed = $this->parser->parse((string) $import->extracted_text);
+            $validated = $parsed['payload'];
 
             $import->update([
                 'status' => ResumeImport::STATUS_REVIEW,
                 'parsed_payload' => $validated,
                 'review_payload' => $validated,
-                'provider' => config('ai.default'),
-                'model' => config('ai.providers.'.config('ai.default').'.model'),
+                'provider' => $parsed['provider'] ?? $providerName,
+                'model' => $parsed['model'] ?? config('ai.providers.'.$providerName.'.model'),
             ]);
         } catch (ValidationException $e) {
             $safe = collect($e->errors())->flatten()->first() ?: 'Parsing failed.';

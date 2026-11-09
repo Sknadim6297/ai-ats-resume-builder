@@ -11,7 +11,12 @@ use App\Services\AI\Exceptions\AiProviderException;
 class AiConfiguration
 {
     /**
-     * Ensure the active provider can make live requests (currently: grok).
+     * @var list<string>
+     */
+    private const LIVE_PROVIDERS = ['grok', 'gemini'];
+
+    /**
+     * Ensure the active provider can make live requests.
      *
      * @throws AiProviderException
      */
@@ -23,27 +28,38 @@ class AiConfiguration
             throw AiProviderException::notConfigured('null');
         }
 
-        if ($provider !== 'grok') {
+        if (! in_array($provider, self::LIVE_PROVIDERS, true)) {
             throw AiProviderException::requestFailed(
                 $provider,
-                'Unsupported AI provider. Set AI_PROVIDER=grok.'
+                'Unsupported AI provider. Set AI_PROVIDER=grok or AI_PROVIDER=gemini.'
             );
         }
 
-        $apiKey = trim((string) config('ai.providers.grok.api_key', ''));
-        $model = trim((string) config('ai.providers.grok.model', ''));
+        [$apiKeyEnv, $modelEnv] = $this->credentialEnvKeys($provider);
+        $apiKey = trim((string) config("ai.providers.{$provider}.api_key", ''));
+        $model = trim((string) config("ai.providers.{$provider}.model", ''));
 
         $missing = [];
         if ($apiKey === '') {
-            $missing[] = 'XAI_API_KEY';
+            $missing[] = $apiKeyEnv;
         }
         if ($model === '') {
-            $missing[] = 'XAI_MODEL';
+            $missing[] = $modelEnv;
         }
 
         if ($missing !== []) {
-            throw AiProviderException::missingCredentials('grok', $missing);
+            throw AiProviderException::missingCredentials($provider, $missing);
         }
+    }
+
+    /**
+     * Resolve which provider should handle a named AI task.
+     */
+    public function providerForTask(string $task): string
+    {
+        $configured = config("ai.tasks.{$task}.provider");
+
+        return $this->normalizeProvider($configured ?: config('ai.default'));
     }
 
     public function normalizeProvider(mixed $provider): string
@@ -60,17 +76,30 @@ class AiConfiguration
     /**
      * @return array{provider: string, api_key_configured: bool, model_configured: bool, ready: bool}
      */
-    public function status(): array
+    public function status(?string $provider = null): array
     {
-        $provider = $this->normalizeProvider(config('ai.default'));
-        $apiKeyConfigured = trim((string) config('ai.providers.grok.api_key', '')) !== '';
-        $modelConfigured = trim((string) config('ai.providers.grok.model', '')) !== '';
+        $provider = $this->normalizeProvider($provider ?? config('ai.default'));
+        $apiKeyConfigured = trim((string) config("ai.providers.{$provider}.api_key", '')) !== '';
+        $modelConfigured = trim((string) config("ai.providers.{$provider}.model", '')) !== '';
 
         return [
             'provider' => $provider,
             'api_key_configured' => $apiKeyConfigured,
             'model_configured' => $modelConfigured,
-            'ready' => $provider === 'grok' && $apiKeyConfigured && $modelConfigured,
+            'ready' => in_array($provider, self::LIVE_PROVIDERS, true)
+                && $apiKeyConfigured
+                && $modelConfigured,
         ];
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function credentialEnvKeys(string $provider): array
+    {
+        return match ($provider) {
+            'gemini' => ['GEMINI_API_KEY', 'GEMINI_MODEL'],
+            default => ['XAI_API_KEY', 'XAI_MODEL'],
+        };
     }
 }
