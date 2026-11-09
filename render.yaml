@@ -1,0 +1,95 @@
+# Render Blueprint — AI ATS Resume Builder
+# https://render.com/docs/blueprint-spec
+#
+# External MySQL is required (Render does not provide managed MySQL here).
+# Resume uploads use the local disk — a persistent disk is mounted under storage/.
+# PDF/DOCX exports are streamed (not stored). No background queue worker is required
+# while QUEUE_CONNECTION=sync (the app currently has no ShouldQueue jobs).
+
+services:
+  - type: web
+    name: ai-ats-resume-builder
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    autoDeploy: true
+    disk:
+      name: ats-storage
+      mountPath: /var/www/html/storage
+      sizeGB: 2
+    envVars:
+      - key: APP_NAME
+        value: AI ATS Resume Builder
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        sync: false
+      - key: APP_KEY
+        sync: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: RUN_DB_SEED
+        value: "false"
+
+      # Prefer sync: no separate worker service required for current codebase.
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_LIFETIME
+        value: "120"
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: FILESYSTEM_DISK
+        value: local
+
+      # External MySQL (set secrets in the Render dashboard)
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # xAI Grok (server-side only — never VITE_*)
+      - key: AI_PROVIDER
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: XAI_BASE_URL
+        value: https://api.x.ai/v1
+      - key: XAI_MODEL
+        sync: false
+      - key: XAI_TIMEOUT
+        value: "45"
+      - key: XAI_MAX_RETRIES
+        value: "1"
+      - key: AI_JD_RATE_LIMIT
+        value: "5"
+
+      # Optional first-boot admin (only used when RUN_DB_SEED=true)
+      - key: ADMIN_NAME
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
