@@ -8,10 +8,10 @@ export default function ProfileSelector() {
     }
 
     return (
-        <label className="flex min-w-0 max-w-[14rem] items-center gap-2 text-xs text-slate-500 sm:max-w-xs">
-            <span className="hidden shrink-0 sm:inline">Profile</span>
+        <label className="flex w-full min-w-0 max-w-full items-center gap-2 text-xs text-slate-500 sm:max-w-[12rem] md:max-w-xs">
+            <span className="hidden shrink-0 md:inline">Profile</span>
             <select
-                className="w-full truncate rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="min-w-0 w-full truncate rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 value={currentProfile.id}
                 onChange={(event) => {
                     const profileId = Number(event.target.value);

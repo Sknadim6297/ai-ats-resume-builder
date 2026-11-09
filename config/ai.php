@@ -31,8 +31,8 @@ return [
             'driver' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
             'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
-            // Example: gemini-2.5-flash
-            'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+            // New keys: use gemini-3.5-flash-lite (gemini-2.5-flash is restricted).
+            'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
             'timeout' => (int) env('GEMINI_TIMEOUT', 90),
             'max_retries' => min(2, (int) env('GEMINI_MAX_RETRIES', 1)),
         ],

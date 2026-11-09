@@ -14,6 +14,7 @@ use App\Models\WorkExperienceTechnology;
 use App\Services\AI\AiConfiguration;
 use App\Services\Profile\CurrentProfileService;
 use App\Services\Profile\ProfessionalProfileService;
+use App\Services\Resume\ResumeSkillCategorizer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -34,6 +35,7 @@ class ResumeImportService
         private readonly CurrentProfileService $current,
         private readonly ResumeImportSchema $schema,
         private readonly AiConfiguration $aiConfiguration,
+        private readonly ResumeSkillCategorizer $skillCategorizer,
     ) {}
 
     public function findOwned(User $user, int $id): ResumeImport
@@ -409,15 +411,36 @@ class ResumeImportService
      */
     private function attachSkillsToProfile(Profile $profile, array $skillNames, bool $skipExisting): void
     {
+        $grouped = $this->skillCategorizer->group(array_values(array_filter(
+            array_map(fn ($name) => is_string($name) ? Skill::normalizeName($name) : '', $skillNames)
+        )));
+        $categoryByName = [];
+        foreach ($grouped as $group) {
+            foreach ($group['skills'] as $name) {
+                $categoryByName[mb_strtolower($name)] = $group['category'];
+            }
+        }
+
         foreach ($skillNames as $skillName) {
             if (! is_string($skillName) || trim($skillName) === '') {
                 continue;
             }
-            $slug = Skill::makeSlug($skillName);
+            $normalized = Skill::normalizeName($skillName);
+            $slug = Skill::makeSlug($normalized);
+            $category = $categoryByName[mb_strtolower($normalized)] ?? null;
+
             $skill = Skill::query()->firstOrCreate(
                 ['slug' => $slug],
-                ['name' => Skill::normalizeName($skillName)]
+                [
+                    'name' => $normalized,
+                    'category' => $category,
+                ]
             );
+
+            if ($skill->category === null && $category !== null) {
+                $skill->update(['category' => $category]);
+            }
+
             if ($skipExisting && $profile->skills()->where('skills.id', $skill->id)->exists()) {
                 continue;
             }

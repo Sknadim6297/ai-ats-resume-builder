@@ -94,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:3,1')
         ->name('job-analyzer.resume-draft.generate');
 
+    Route::get('/resume-builder', [ResumeDraftController::class, 'builder'])->name('resume-builder');
     Route::get('/resumes', [ResumeDraftController::class, 'index'])->name('resumes.index');
     Route::get('/resume-drafts/{resumeDraft}', [ResumeDraftController::class, 'show'])->name('resume-drafts.show');
     Route::get('/resume-drafts/{resumeDraft}/edit', [ResumeDraftController::class, 'edit'])->name('resume-drafts.edit');

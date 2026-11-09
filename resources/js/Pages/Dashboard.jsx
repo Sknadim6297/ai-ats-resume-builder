@@ -1,4 +1,3 @@
-import Badge from '@/Components/Badge';
 import Card from '@/Components/Card';
 import EmptyState from '@/Components/EmptyState';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -36,23 +35,32 @@ export default function Dashboard({ stats, completeness, userName }) {
 
             <div className="py-6 sm:py-8">
                 <div className="mx-auto max-w-6xl space-y-6 px-3 sm:px-6 lg:px-8">
-                    <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50 to-white">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <section className="ai-panel p-6 sm:p-8">
+                        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                             <div className="min-w-0">
-                                <Badge variant="info">Phase 3</Badge>
-                                <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                                    Master profile management is available
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
+                                    AI workspace
+                                </p>
+                                <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                                    Build a grounded resume that feels designed.
                                 </h2>
-                                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                                    Save personal details, skills, projects, experience, and education
-                                    once. AI job analysis and resume generation remain for later phases.
+                                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                                    Your profile stays the source of truth. Analyze a job, review skills, and export an ATS resume with categorized skills.
                                 </p>
                             </div>
-                            <Link href={route('master-profile.edit')} className="shrink-0">
-                                <PrimaryButton>Open Master Profile</PrimaryButton>
-                            </Link>
+                            <div className="flex shrink-0 flex-wrap gap-2">
+                                <Link href={route('job-analyzer.index')}>
+                                    <PrimaryButton>Analyze a job</PrimaryButton>
+                                </Link>
+                                <Link
+                                    href={route('resume-imports.create')}
+                                    className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-slate-700 transition hover:border-indigo-200 hover:text-indigo-700"
+                                >
+                                    Import resume
+                                </Link>
+                            </div>
                         </div>
-                    </Card>
+                    </section>
 
                     <Card>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -63,7 +71,7 @@ export default function Dashboard({ stats, completeness, userName }) {
                                 </p>
                             </div>
                             <div className="text-right">
-                                <p className="text-3xl font-semibold text-indigo-700">
+                                <p className="ai-gradient-text text-3xl font-semibold">
                                     {completeness?.percentage ?? 0}%
                                 </p>
                                 <p className="text-xs text-slate-500">
@@ -73,7 +81,7 @@ export default function Dashboard({ stats, completeness, userName }) {
                         </div>
                         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
                             <div
-                                className="h-full rounded-full bg-indigo-600 transition-all"
+                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-400 transition-all duration-700"
                                 style={{ width: `${completeness?.percentage ?? 0}%` }}
                             />
                         </div>

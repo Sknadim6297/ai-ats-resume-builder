@@ -19,6 +19,7 @@ const MESSAGES = {
     'project-selection-saved': 'Project selection saved.',
     'project-selection-reset': 'Project selection reset to recommendations.',
     'resume-draft-generated': 'Resume draft generated.',
+    'resume-builder-empty': 'No resume yet. Analyze a job, then generate one from Job Analyzer.',
     'resume-draft-saved': 'Resume edits saved as a new version.',
     'resume-version-restored': 'Earlier version restored as the current resume.',
     'profile-created': 'Professional profile created.',
