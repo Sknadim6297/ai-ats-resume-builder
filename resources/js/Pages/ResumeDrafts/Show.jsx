@@ -19,6 +19,53 @@ function formatDate(value, isCurrent) {
     return value;
 }
 
+function groupSkills(skills = []) {
+    const order = [
+        'Frontend',
+        'Backend',
+        'Laravel',
+        'Mobile',
+        'Database',
+        'APIs & Integrations',
+        'Development',
+        'Deployment & DevOps',
+        'Tools',
+        'Other',
+    ];
+
+    const rules = {
+        Frontend: ['react', 'javascript', 'typescript', 'html', 'css', 'tailwind', 'jquery', 'ajax', 'next', 'vue', 'inertia'],
+        Backend: ['php', 'laravel', 'codeigniter', 'node', 'express', 'python', 'fastapi', 'django'],
+        Laravel: ['eloquent', 'migration', 'middleware', 'rbac', 'queue', 'mvc', 'validation', 'authentication', 'authorization', 'routing', 'controller'],
+        Mobile: ['react native', 'flutter', 'expo', 'android', 'ios'],
+        Database: ['mysql', 'mongodb', 'postgres', 'sqlite', 'redis', 'sql', 'database', 'indexing', 'query'],
+        'APIs & Integrations': ['rest', 'api', 'graphql', 'razorpay', 'stripe', 'paypal', 'whatsapp', 'pusher', 'llm', 'ocr'],
+        Development: ['oop', 'crud', 'debugging', 'security', 'performance', 'caching', 'testing', 'workflow'],
+        'Deployment & DevOps': ['aws', 'docker', 'linux', 'deploy', 'ci/cd', 'nginx', 'container'],
+        Tools: ['git', 'github', 'gitlab', 'postman', 'cursor', 'vs code', 'figma'],
+    };
+
+    const buckets = {};
+    skills.forEach((skill) => {
+        const value = String(skill || '').toLowerCase();
+        let category = 'Other';
+        for (const name of ['Laravel', 'Mobile', 'Frontend', 'Database', 'APIs & Integrations', 'Deployment & DevOps', 'Tools', 'Development', 'Backend']) {
+            if ((rules[name] || []).some((needle) => value.includes(needle))) {
+                category = name;
+                break;
+            }
+        }
+        buckets[category] = buckets[category] || [];
+        if (!buckets[category].includes(skill)) {
+            buckets[category].push(skill);
+        }
+    });
+
+    return order
+        .filter((category) => (buckets[category] || []).length > 0)
+        .map((category) => ({ category, skills: buckets[category] }));
+}
+
 function AtsResumeDocument({ content }) {
     if (!content) {
         return <p className="text-sm text-slate-500">No resume content available.</p>;
@@ -26,22 +73,26 @@ function AtsResumeDocument({ content }) {
 
     const contact = content.contact || {};
     const links = [contact.linkedin_url, contact.github_url, contact.portfolio_url].filter(Boolean);
+    const skillGroups =
+        Array.isArray(content.skill_groups) && content.skill_groups.length > 0
+            ? content.skill_groups
+            : groupSkills(content.technical_skills || []);
 
     return (
         <article className="ats-resume mx-auto w-full max-w-[210mm] bg-white text-slate-900 shadow-sm print:shadow-none">
             <div className="box-border min-h-[297mm] px-8 py-10 sm:px-12 sm:py-12">
                 <header className="border-b border-slate-300 pb-4 text-center">
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                    <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-900 sm:text-3xl">
                         {contact.full_name}
                     </h1>
                     {contact.headline && (
                         <p className="mt-1 text-sm font-medium text-slate-700">{contact.headline}</p>
                     )}
                     <p className="mt-2 text-xs text-slate-600 sm:text-sm">
-                        {[contact.email, contact.phone, contact.location].filter(Boolean).join(' · ')}
+                        {[contact.location, contact.email, contact.phone].filter(Boolean).join('  |  ')}
                     </p>
                     {links.length > 0 && (
-                        <p className="mt-1 break-all text-xs text-slate-600">{links.join(' · ')}</p>
+                        <p className="mt-1 break-all text-xs text-slate-600">{links.join('  |  ')}</p>
                     )}
                 </header>
 
@@ -58,9 +109,18 @@ function AtsResumeDocument({ content }) {
                     <h2 className="border-b border-slate-200 pb-1 text-sm font-bold uppercase tracking-wide text-slate-900">
                         Technical Skills
                     </h2>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-800">
-                        {(content.technical_skills || []).join(', ')}
-                    </p>
+                    <div className="mt-2 space-y-1 text-sm leading-relaxed text-slate-800">
+                        {skillGroups.length > 0 ? (
+                            skillGroups.map((group) => (
+                                <p key={group.category}>
+                                    <span className="font-semibold">{group.category}:</span>{' '}
+                                    {(group.skills || []).join(', ')}
+                                </p>
+                            ))
+                        ) : (
+                            <p>{(content.technical_skills || []).join(', ')}</p>
+                        )}
+                    </div>
                 </section>
 
                 {(content.experience || []).length > 0 && (
@@ -73,7 +133,7 @@ function AtsResumeDocument({ content }) {
                                 <div key={job.source_id}>
                                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                                         <p className="text-sm font-semibold text-slate-900">
-                                            {job.job_title} — {job.company_name}
+                                            {job.company_name} — {job.job_title}
                                         </p>
                                         <p className="text-xs text-slate-600">
                                             {formatDate(job.start_date)} – {formatDate(job.end_date, job.is_current)}
@@ -109,7 +169,7 @@ function AtsResumeDocument({ content }) {
                                     </p>
                                     {(project.technologies || []).length > 0 && (
                                         <p className="mt-1 text-xs text-slate-600">
-                                            Technologies: {project.technologies.join(', ')}
+                                            Tech Stack: {project.technologies.join(', ')}
                                         </p>
                                     )}
                                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-800">
@@ -305,7 +365,7 @@ export default function Show({ draft, status }) {
                         </Card>
                     )}
 
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-3 sm:p-6">
+                    <div className="resume-stage overflow-x-auto">
                         <AtsResumeDocument content={draft.content} />
                     </div>
                 </div>

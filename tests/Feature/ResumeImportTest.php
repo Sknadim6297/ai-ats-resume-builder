@@ -237,13 +237,17 @@ class ResumeImportTest extends TestCase
 
         $parser = Mockery::mock(ResumeImportParser::class);
         $parser->shouldReceive('parse')->once()->andReturn([
-            'personal' => ['full_name' => 'Test User', 'email' => $user->email, 'additional_links' => []],
-            'skills' => ['Laravel'],
-            'work_experiences' => [],
-            'projects' => [],
-            'education' => [],
-            'certifications' => [],
-            'uncertain_fields' => [],
+            'payload' => [
+                'personal' => ['full_name' => 'Test User', 'email' => $user->email, 'additional_links' => []],
+                'skills' => ['Laravel'],
+                'work_experiences' => [],
+                'projects' => [],
+                'education' => [],
+                'certifications' => [],
+                'uncertain_fields' => [],
+            ],
+            'provider' => 'gemini',
+            'model' => 'gemini-2.5-flash',
         ]);
         $this->app->instance(ResumeImportParser::class, $parser);
 
@@ -257,8 +261,9 @@ class ResumeImportTest extends TestCase
     {
         config([
             'ai.default' => 'null',
-            'ai.providers.grok.api_key' => '',
-            'ai.providers.grok.model' => '',
+            'ai.tasks.resume_import.provider' => 'null',
+            'ai.providers.gemini.api_key' => '',
+            'ai.providers.gemini.model' => '',
         ]);
 
         $user = User::factory()->create();
@@ -275,22 +280,23 @@ class ResumeImportTest extends TestCase
         } catch (ValidationException $e) {
             $message = collect($e->errors())->flatten()->first();
             $this->assertIsString($message);
-            $this->assertStringContainsString('AI_PROVIDER=grok', $message);
+            $this->assertStringContainsString('AI_RESUME_IMPORT_PROVIDER=gemini', $message);
             $this->assertStringNotContainsString('unexpectedly', mb_strtolower($message));
             $this->assertStringNotContainsString('secret', mb_strtolower($message));
         }
 
         $fresh = $import->fresh();
         $this->assertSame(ResumeImport::STATUS_FAILED, $fresh->status);
-        $this->assertStringContainsString('AI_PROVIDER=grok', (string) $fresh->safe_error);
+        $this->assertStringContainsString('AI_RESUME_IMPORT_PROVIDER=gemini', (string) $fresh->safe_error);
     }
 
     public function test_parse_shows_clear_error_when_api_key_missing(): void
     {
         config([
-            'ai.default' => 'grok',
-            'ai.providers.grok.api_key' => '',
-            'ai.providers.grok.model' => 'grok-test',
+            'ai.default' => 'gemini',
+            'ai.tasks.resume_import.provider' => 'gemini',
+            'ai.providers.gemini.api_key' => '',
+            'ai.providers.gemini.model' => 'gemini-2.5-flash',
         ]);
 
         $user = User::factory()->create();
@@ -307,7 +313,7 @@ class ResumeImportTest extends TestCase
         } catch (ValidationException $e) {
             $message = collect($e->errors())->flatten()->first();
             $this->assertIsString($message);
-            $this->assertStringContainsString('XAI_API_KEY', $message);
+            $this->assertStringContainsString('GEMINI_API_KEY', $message);
             $this->assertStringNotContainsString('unexpectedly', mb_strtolower($message));
         }
     }
@@ -315,16 +321,17 @@ class ResumeImportTest extends TestCase
     public function test_parse_maps_invalid_api_key_without_exposing_secrets(): void
     {
         config([
-            'ai.default' => 'grok',
-            'ai.providers.grok.api_key' => 'sk-test-should-not-appear-in-ui',
-            'ai.providers.grok.model' => 'test-model',
-            'ai.providers.grok.base_url' => 'https://api.x.ai/v1',
-            'ai.providers.grok.timeout' => 5,
-            'ai.providers.grok.max_retries' => 0,
+            'ai.default' => 'gemini',
+            'ai.tasks.resume_import.provider' => 'gemini',
+            'ai.providers.gemini.api_key' => 'sk-test-should-not-appear-in-ui',
+            'ai.providers.gemini.model' => 'gemini-2.5-flash',
+            'ai.providers.gemini.base_url' => 'https://generativelanguage.googleapis.com/v1beta',
+            'ai.providers.gemini.timeout' => 5,
+            'ai.providers.gemini.max_retries' => 0,
         ]);
 
         \Illuminate\Support\Facades\Http::fake([
-            'api.x.ai/*' => \Illuminate\Support\Facades\Http::response(['error' => 'unauthorized'], 401),
+            'generativelanguage.googleapis.com/*' => \Illuminate\Support\Facades\Http::response(['error' => 'unauthorized'], 401),
         ]);
 
         $user = User::factory()->create();

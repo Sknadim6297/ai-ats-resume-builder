@@ -43,9 +43,9 @@ const NAV_ITEMS = [
     { name: 'Projects', route: 'projects.index', icon: 'projects', available: true },
     { name: 'Work Experience', route: 'experience.index', icon: 'experience', available: true },
     { name: 'Education', route: 'education.index', icon: 'education', available: true },
-    { name: 'Job Analyzer', route: 'job-analyzer.index', icon: 'analyzer', available: true },
-    { name: 'Resume Builder', route: 'job-analyzer.index', icon: 'builder', available: true },
-    { name: 'Resume History', route: 'resumes.index', icon: 'history', available: true },
+    { name: 'Job Analyzer', route: 'job-analyzer.index', icon: 'analyzer', available: true, active: ['job-analyzer.*'] },
+    { name: 'Resume Builder', route: 'resume-builder', icon: 'builder', available: true, active: ['resume-drafts.*'] },
+    { name: 'Resume History', route: 'resumes.index', icon: 'history', available: true, active: ['resumes.index'] },
     { name: 'Settings', route: 'settings.edit', icon: 'settings', available: true },
 ];
 
@@ -61,15 +61,15 @@ export default function SidebarNav({ collapsed = false, onNavigate }) {
     const page = usePage();
 
     return (
-        <nav className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden p-3">
-            <div className="space-y-1">
+        <nav className="sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-2 py-3">
+            <div className="space-y-0.5">
                 {NAV_ITEMS.map((item) => {
                     if (!item.available) {
                         return (
                             <div
                                 key={item.name}
                                 className={
-                                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 ' +
+                                    'flex h-10 items-center gap-3 rounded-xl px-2 text-sm text-slate-500 ' +
                                     (collapsed ? 'justify-center' : 'justify-between')
                                 }
                                 title={`${item.name} — Coming Soon`}
@@ -84,13 +84,15 @@ export default function SidebarNav({ collapsed = false, onNavigate }) {
                         );
                     }
 
-                    const active = route().current(item.route)
-                        || (item.route === 'settings.edit' && route().current('profile.edit'))
-                        || (item.route === 'projects.index' && route().current('projects.*'))
-                        || (item.route === 'skills.index' && route().current('skills.*'))
-                        || (item.route === 'profiles.index' && route().current('profiles.*'))
-                        || (item.route === 'resume-imports.create' && route().current('resume-imports.*'))
-                        || (item.route === 'job-analyzer.index' && route().current('job-analyzer.*'));
+                    const patterns = item.active || [
+                        item.route,
+                        ...(item.route === 'settings.edit' ? ['profile.edit'] : []),
+                        ...(item.route === 'projects.index' ? ['projects.*'] : []),
+                        ...(item.route === 'skills.index' ? ['skills.*'] : []),
+                        ...(item.route === 'profiles.index' ? ['profiles.*'] : []),
+                        ...(item.route === 'resume-imports.create' ? ['resume-imports.*'] : []),
+                    ];
+                    const active = patterns.some((pattern) => route().current(pattern));
 
                     return (
                         <Link
@@ -99,14 +101,16 @@ export default function SidebarNav({ collapsed = false, onNavigate }) {
                             onClick={onNavigate}
                             title={collapsed ? item.name : undefined}
                             className={
-                                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ' +
+                                'flex h-10 items-center gap-3 rounded-xl px-2 text-sm font-medium leading-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 ' +
                                 (collapsed ? 'justify-center ' : '') +
                                 (active
-                                    ? 'bg-indigo-50 text-indigo-700'
-                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
+                                    ? 'bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+                                    : 'text-slate-300 hover:bg-white/5 hover:text-white')
                             }
                         >
-                            <Icon name={item.icon} />
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                                <Icon name={item.icon} />
+                            </span>
                             {!collapsed && <span className="truncate">{item.name}</span>}
                         </Link>
                     );
@@ -114,13 +118,10 @@ export default function SidebarNav({ collapsed = false, onNavigate }) {
             </div>
 
             {!collapsed && (
-                <div className="mt-auto pt-6">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                        Signed in as{' '}
-                        <span className="break-all font-medium text-slate-700">
-                            {page.props.auth.user.email}
-                        </span>
-                    </div>
+                <div className="mt-3 shrink-0 px-2">
+                    <p className="truncate text-[11px] text-slate-500">
+                        {page.props.auth.user.email}
+                    </p>
                 </div>
             )}
         </nav>

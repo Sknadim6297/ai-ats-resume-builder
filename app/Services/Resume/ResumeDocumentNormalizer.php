@@ -7,12 +7,17 @@ namespace App\Services\Resume;
  */
 class ResumeDocumentNormalizer
 {
+    public function __construct(
+        private readonly ResumeSkillCategorizer $skillCategorizer = new ResumeSkillCategorizer,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $content
      * @return array{
      *     contact: array<string, mixed>,
      *     professional_summary: string,
      *     technical_skills: list<string>,
+     *     skill_groups: list<array{category: string, skills: list<string>}>,
      *     experience: list<array<string, mixed>>,
      *     projects: list<array<string, mixed>>,
      *     education: list<array<string, mixed>>
@@ -21,6 +26,13 @@ class ResumeDocumentNormalizer
     public function normalize(array $content): array
     {
         $contact = is_array($content['contact'] ?? null) ? $content['contact'] : [];
+
+        $technicalSkills = array_values(array_filter(array_map(
+            fn ($skill) => $this->plain((string) $skill),
+            is_array($content['technical_skills'] ?? null) ? $content['technical_skills'] : []
+        )));
+
+        $skillGroups = $this->normalizeSkillGroups($content['skill_groups'] ?? null, $technicalSkills);
 
         return [
             'contact' => [
@@ -34,10 +46,8 @@ class ResumeDocumentNormalizer
                 'portfolio_url' => $this->plainNullable($contact['portfolio_url'] ?? null),
             ],
             'professional_summary' => $this->plain((string) ($content['professional_summary'] ?? '')),
-            'technical_skills' => array_values(array_filter(array_map(
-                fn ($skill) => $this->plain((string) $skill),
-                is_array($content['technical_skills'] ?? null) ? $content['technical_skills'] : []
-            ))),
+            'technical_skills' => $technicalSkills,
+            'skill_groups' => $skillGroups,
             'experience' => array_values(array_map(function ($row) {
                 $row = is_array($row) ? $row : [];
 
@@ -87,6 +97,43 @@ class ResumeDocumentNormalizer
                 ];
             }, is_array($content['education'] ?? null) ? $content['education'] : [])),
         ];
+    }
+
+    /**
+     * Prefer explicit skill_groups when present; otherwise categorize flat technical_skills.
+     *
+     * @param  mixed  $groups
+     * @param  list<string>  $technicalSkills
+     * @return list<array{category: string, skills: list<string>}>
+     */
+    private function normalizeSkillGroups(mixed $groups, array $technicalSkills): array
+    {
+        if (is_array($groups) && $groups !== []) {
+            $normalized = [];
+            foreach ($groups as $group) {
+                if (! is_array($group)) {
+                    continue;
+                }
+                $category = $this->plainNullable($group['category'] ?? null);
+                $skills = array_values(array_filter(array_map(
+                    fn ($skill) => $this->plain((string) $skill),
+                    is_array($group['skills'] ?? null) ? $group['skills'] : []
+                )));
+                if ($category === null || $skills === []) {
+                    continue;
+                }
+                $normalized[] = [
+                    'category' => $category,
+                    'skills' => $skills,
+                ];
+            }
+
+            if ($normalized !== []) {
+                return $normalized;
+            }
+        }
+
+        return $this->skillCategorizer->group($technicalSkills);
     }
 
     private function plain(string $value): string

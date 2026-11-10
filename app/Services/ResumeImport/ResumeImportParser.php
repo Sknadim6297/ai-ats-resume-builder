@@ -18,13 +18,15 @@ class ResumeImportParser
     ) {}
 
     /**
-     * @return array<string, mixed>
+     * @return array{payload: array<string, mixed>, provider: string, model: string|null}
      */
     public function parse(string $extractedText): array
     {
+        $provider = $this->configuration->providerForTask('resume_import');
+
         try {
             // Fail fast with a clear message before any network call.
-            $this->configuration->assertReadyForLiveRequests();
+            $this->configuration->assertReadyForLiveRequests($provider);
 
             $response = $this->ai->complete(new AiRequest(
                 task: 'resume_import',
@@ -34,7 +36,7 @@ class ResumeImportParser
                     'system' => $this->systemPrompt(),
                     'temperature' => 0.1,
                 ],
-            ));
+            ), $provider);
         } catch (AiProviderException $e) {
             throw ValidationException::withMessages([
                 'resume' => $this->safeErrorMessage($e),
@@ -49,9 +51,11 @@ class ResumeImportParser
             ]);
         }
 
-        $payload = $response->json ?? [];
-
-        return $this->schema->validate($payload);
+        return [
+            'payload' => $this->schema->validate($response->json ?? []),
+            'provider' => $response->provider,
+            'model' => $response->model,
+        ];
     }
 
     private function systemPrompt(): string
@@ -85,29 +89,23 @@ PROMPT;
 
         // Never echo exception text that might contain secrets; map to fixed copy only.
         if (str_contains($message, 'missing credentials')) {
-            if (str_contains($message, 'xai_api_key') && str_contains($message, 'xai_model')) {
-                return 'AI is not fully configured. Set XAI_API_KEY and XAI_MODEL in your .env file, then run php artisan config:clear.';
-            }
-            if (str_contains($message, 'xai_api_key')) {
-                return 'AI is not fully configured. Set XAI_API_KEY in your .env file, then run php artisan config:clear.';
-            }
-            if (str_contains($message, 'xai_model')) {
-                return 'AI is not fully configured. Set XAI_MODEL in your .env file (from current xAI docs), then run php artisan config:clear.';
+            if (str_contains($message, 'gemini_api_key') || str_contains($message, 'gemini_model')) {
+                return 'AI is not fully configured for resume import. Set GEMINI_API_KEY and GEMINI_MODEL in your .env file, then run php artisan config:clear.';
             }
 
-            return 'AI is not fully configured. Set XAI_API_KEY and XAI_MODEL in your .env file, then run php artisan config:clear.';
+            return 'AI is not fully configured. Set the provider API key and model in your .env file, then run php artisan config:clear.';
         }
 
         if (str_contains($message, 'not configured')) {
-            return 'AI is not enabled. Set AI_PROVIDER=grok, XAI_API_KEY, and XAI_MODEL in your .env file, then run php artisan config:clear.';
+            return 'AI is not enabled for resume import. Set AI_RESUME_IMPORT_PROVIDER=gemini, GEMINI_API_KEY, and GEMINI_MODEL in your .env file, then run php artisan config:clear.';
         }
 
-        if (str_contains($message, 'unsupported ai provider') || str_contains($message, 'set ai_provider=grok')) {
-            return 'Unsupported AI provider. Set AI_PROVIDER=grok in your .env file, then run php artisan config:clear.';
+        if (str_contains($message, 'unsupported ai provider')) {
+            return 'Unsupported AI provider for resume import. Set AI_RESUME_IMPORT_PROVIDER=gemini (or grok) in your .env file, then run php artisan config:clear.';
         }
 
         if (str_contains($message, 'unsupported or invalid model')) {
-            return 'The configured XAI_MODEL is invalid or unsupported. Check the model id in your .env against current xAI docs, then run php artisan config:clear.';
+            return 'The configured AI model is invalid or unsupported. Check GEMINI_MODEL (or XAI_MODEL) in your .env, then run php artisan config:clear.';
         }
 
         if (str_contains($message, 'rate limit')) {
@@ -115,7 +113,7 @@ PROMPT;
         }
 
         if (str_contains($message, 'authentication')) {
-            return 'AI authentication failed. Check that XAI_API_KEY is valid.';
+            return 'AI authentication failed. Check that GEMINI_API_KEY (or XAI_API_KEY) is valid.';
         }
 
         if (str_contains($message, 'timed out') || str_contains($message, 'connection')) {

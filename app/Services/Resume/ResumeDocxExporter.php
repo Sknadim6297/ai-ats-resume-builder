@@ -57,26 +57,35 @@ class ResumeDocxExporter
         $section->addText($document['professional_summary'], ['size' => 11]);
 
         $this->heading($section, 'Technical Skills');
-        $section->addText(implode(', ', $document['technical_skills']), ['size' => 11]);
+        if (! empty($document['skill_groups'])) {
+            foreach ($document['skill_groups'] as $group) {
+                $section->addText(
+                    $group['category'].': '.implode(', ', $group['skills']),
+                    ['size' => 10]
+                );
+            }
+        } else {
+            $section->addText(implode(', ', $document['technical_skills']), ['size' => 10]);
+        }
 
         if ($document['experience'] !== []) {
             $this->heading($section, 'Professional Experience');
             foreach ($document['experience'] as $job) {
                 $dates = $this->formatRange($job['start_date'] ?? null, $job['end_date'] ?? null, (bool) $job['is_current']);
                 $section->addText(
-                    $job['job_title'].' — '.$job['company_name'],
+                    $job['company_name'].' — '.$job['job_title'],
                     ['bold' => true, 'size' => 11]
                 );
-                $line = trim(implode(' · ', array_filter([
-                    $dates,
+                $line = trim(implode(' | ', array_filter([
                     $job['location'] ?? null,
+                    $dates,
                     $job['employment_type'] ?? null,
                 ])));
                 if ($line !== '') {
                     $section->addText($line, ['size' => 9, 'italic' => true]);
                 }
                 foreach ($job['bullets'] as $bullet) {
-                    $section->addListItem($bullet, 0, ['size' => 11]);
+                    $section->addListItem($bullet, 0, ['size' => 10]);
                 }
             }
         }
@@ -90,10 +99,10 @@ class ResumeDocxExporter
                 }
                 $section->addText($title, ['bold' => true, 'size' => 11]);
                 if ($project['technologies'] !== []) {
-                    $section->addText('Technologies: '.implode(', ', $project['technologies']), ['size' => 9]);
+                    $section->addText('Tech Stack: '.implode(', ', $project['technologies']), ['size' => 9]);
                 }
                 foreach ($project['bullets'] as $bullet) {
-                    $section->addListItem($bullet, 0, ['size' => 11]);
+                    $section->addListItem($bullet, 0, ['size' => 10]);
                 }
             }
         }
@@ -101,13 +110,14 @@ class ResumeDocxExporter
         if ($document['education'] !== []) {
             $this->heading($section, 'Education');
             foreach ($document['education'] as $edu) {
+                $years = trim(implode(' – ', array_filter([$edu['start_year'] ?? null, $edu['end_year'] ?? null])));
+                $institution = $edu['institution_name'].($years !== '' ? ' | '.$years : '');
+                $section->addText($institution, ['bold' => true, 'size' => 11]);
                 $degree = $edu['degree'];
                 if (! empty($edu['field_of_study'])) {
                     $degree .= ', '.$edu['field_of_study'];
                 }
-                $years = trim(implode(' – ', array_filter([$edu['start_year'] ?? null, $edu['end_year'] ?? null])));
-                $section->addText($degree.($years !== '' ? ' ('.$years.')' : ''), ['bold' => true, 'size' => 11]);
-                $section->addText($edu['institution_name'], ['size' => 11]);
+                $section->addText($degree, ['size' => 10]);
                 if (! empty($edu['grade'])) {
                     $section->addText((string) $edu['grade'], ['size' => 9]);
                 }

@@ -30,6 +30,22 @@ class ResumeDraftController extends Controller
         private readonly ResumeManagementService $management,
     ) {}
 
+    public function builder(Request $request): RedirectResponse
+    {
+        $latest = ResumeDraft::query()
+            ->where('user_id', $request->user()->id)
+            ->latest('updated_at')
+            ->first();
+
+        if ($latest) {
+            return redirect()->route('resume-drafts.show', $latest);
+        }
+
+        return redirect()
+            ->route('resumes.index')
+            ->with('status', 'resume-builder-empty');
+    }
+
     public function index(Request $request): Response
     {
         $paginator = $this->management->listForUser($request->user(), [

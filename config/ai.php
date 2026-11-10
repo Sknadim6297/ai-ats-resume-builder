@@ -7,8 +7,8 @@ return [
     | Default AI Provider
     |--------------------------------------------------------------------------
     |
-    | Supported: "grok", "null"
-    | Keep "null" until XAI_API_KEY and XAI_MODEL are configured.
+    | Supported: "grok", "gemini", "null"
+    | Keep "null" until a provider key + model are configured.
     |
     */
 
@@ -27,6 +27,16 @@ return [
             'max_retries' => min(2, (int) env('XAI_MAX_RETRIES', 1)),
         ],
 
+        'gemini' => [
+            'driver' => 'gemini',
+            'api_key' => env('GEMINI_API_KEY'),
+            'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+            // New keys: use gemini-3.5-flash-lite (gemini-2.5-flash is restricted).
+            'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+            'timeout' => (int) env('GEMINI_TIMEOUT', 90),
+            'max_retries' => min(2, (int) env('GEMINI_MAX_RETRIES', 1)),
+        ],
+
         'null' => [
             'driver' => 'null',
         ],
@@ -37,6 +47,7 @@ return [
         'jd_extraction' => [
             'response_format' => 'json',
             'schema' => 'JobAnalysisSchema',
+            'provider' => env('AI_JD_PROVIDER'),
         ],
         'skill_matching' => [
             'response_format' => 'json',
@@ -49,10 +60,13 @@ return [
         'resume_generation' => [
             'response_format' => 'json',
             'schema' => 'GroundedResumeSchema',
+            'provider' => env('AI_RESUME_PROVIDER'),
         ],
         'resume_import' => [
             'response_format' => 'json',
             'schema' => 'ResumeImportSchema',
+            // Prefer Gemini for resume extraction unless overridden.
+            'provider' => env('AI_RESUME_IMPORT_PROVIDER', 'gemini'),
         ],
     ],
 

@@ -66,4 +66,29 @@ class AiConfigurationTest extends TestCase
         app(AiConfiguration::class)->assertReadyForLiveRequests();
         $this->assertTrue(true);
     }
+
+    public function test_ready_when_gemini_key_and_model_present(): void
+    {
+        config([
+            'ai.default' => 'gemini',
+            'ai.providers.gemini.api_key' => 'test-key',
+            'ai.providers.gemini.model' => 'gemini-2.5-flash',
+        ]);
+
+        $status = app(AiConfiguration::class)->status('gemini');
+
+        $this->assertTrue($status['ready']);
+        app(AiConfiguration::class)->assertReadyForLiveRequests('gemini');
+        $this->assertTrue(true);
+    }
+
+    public function test_resume_import_task_defaults_to_gemini_provider(): void
+    {
+        config([
+            'ai.default' => 'null',
+            'ai.tasks.resume_import.provider' => 'gemini',
+        ]);
+
+        $this->assertSame('gemini', app(AiConfiguration::class)->providerForTask('resume_import'));
+    }
 }
